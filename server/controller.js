@@ -1,6 +1,7 @@
 const multiparty = require("multiparty");
 const path = require("path");
 const fse = require("fs-extra");
+var fs = require("fs");
 
 // 提取后缀名
 // get file extension
@@ -9,7 +10,7 @@ const extractExt = filename =>
 
 // 大文件存储目录
 // demo directory
-const UPLOAD_DIR = path.resolve(__dirname, "..", "target");
+const UPLOAD_DIR = path.resolve(__dirname, "./target");
 
 // 创建临时文件夹用于临时存储 chunk
 // 添加 chunkDir 前缀与文件名做区分
@@ -57,7 +58,7 @@ const mergeFileChunk = async (filePath, fileHash, size) => {
   );
   // 合并后删除保存切片的目录
   // delete chunk directory after merging
-  fse.rmdirSync(chunkDir);
+  // fse.rmdirSync(chunkDir);
 };
 
 const resolvePost = req =>
@@ -73,10 +74,12 @@ const resolvePost = req =>
 
 // 返回已上传的所有切片名
 // return chunk names which is uploaded
-const createUploadedList = async fileHash =>
-  fse.existsSync(path.resolve(UPLOAD_DIR, fileHash))
-    ? await fse.readdir(path.resolve(UPLOAD_DIR, fileHash))
-    : [];
+const createUploadedList = async fileHash => {
+  const chunkDir = createChunkDir(fileHash);
+  console.log("chunkDir: ", chunkDir);
+  // console.log("Dir:", path.resolve(UPLOAD_DIR, fileHash));
+  return fse.existsSync(chunkDir) ? await fse.readdir(chunkDir) : [];
+};
 
 module.exports = class {
   // 合并切片
@@ -136,6 +139,7 @@ module.exports = class {
         res.end("file exist");
         return;
       }
+      console.log("start");
 
       // 切片存在直接返回
       // return if chunk is exists
@@ -172,12 +176,30 @@ module.exports = class {
         })
       );
     } else {
+      console.log("fileHash:", fileHash);
+      const list = await createUploadedList(fileHash);
       res.end(
         JSON.stringify({
           shouldUpload: true,
-          uploadedList: await createUploadedList(fileHash)
+          uploadedList: list
         })
       );
     }
+  }
+
+  // 下载文件
+  async downloadFile(req, res) {
+    const data = await resolvePost(req);
+    const { fileHash, filename } = data;
+    const ext = extractExt(filename);
+    const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${ext}`);
+    let buffer = fs.readFileSync(filePath);
+    // var rs = fs.createReadStream(filePath);
+    // 设置响应请求头，200表示成功的状态码，headers表示设置的请求头
+    // res.setHeader('Content-Type', 'application/octet-stream');
+    // res.setHeader('Content-Disposition', `attachment;filename=${filename}`);
+    console.log(buffer);
+    res.status = 200;
+    res.end(buffer);
   }
 };

@@ -19,6 +19,7 @@
         >pause</el-button
       >
       <el-button @click="handleDelete">delete</el-button>
+      <el-button @click="handleDownLoad">download</el-button>
     </div>
     <div>
       <div>
@@ -54,6 +55,7 @@
 </template>
 
 <script>
+// import saveAs from "file-saver";
 // 切片大小
 // chunk size
 const SIZE = 10 * 1024 * 1024;
@@ -298,8 +300,30 @@ export default {
     // use closures to save progress data for each chunk
     createProgressHandler(item) {
       return e => {
-        item.percentage = parseInt(String((e.loaded / e.total) * 100));
+        const percentage = parseInt(String((e.loaded / e.total) * 100));
+        item.percentage =
+          item.percentage > percentage ? item.percentage : percentage;
       };
+    },
+
+    // 下载上传的文件
+    async handleDownLoad() {
+      const filename = this.container.file.name;
+      const fileHash = this.container.hash;
+      const data = await this.request({
+        url: "http://localhost:3000/download",
+        headers: {
+          responseType: "blob",
+          "content-type": "application/json"
+        },
+        data: JSON.stringify({
+          filename,
+          fileHash
+        })
+      });
+      console.log(data);
+      // const blob = new Blob([data]);
+      // saveAs(blob, "file.zip");
     }
   }
 };
